@@ -14,9 +14,15 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom'],
-          motion: ['framer-motion'],
+        manualChunks(id, { getModuleInfo }) {
+          const allModules = getModuleInfo()
+          return {
+            chunks: allModules.reduce((prev, module) => {
+              const name = module.name.replace(/index\.js$/, '').replace(/\.\w+$/, '-')
+              prev[name] = module
+              return prev
+            }, {})
+          }
         },
       },
     },
