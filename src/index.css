@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+/* ===== Custom Theme ===== */
+@theme {
+  --color-navy-50: #E8EDF4;
+  --color-navy-100: #C5D1E3;
+  --color-navy-200: #8FA3C7;
+  --color-navy-300: #5975AB;
+  --color-navy-400: #2B4A7D;
+  --color-navy-500: #0F2D52;
+  --color-navy-600: #0D2649;
+  --color-navy-700: #0A1E3A;
+  --color-navy-800: #08172C;
+  --color-navy-900: #05101E;
+
+  --color-gold-50: #FDF8E8;
+  --color-gold-100: #F9EDC5;
+  --color-gold-200: #F3DB8B;
+  --color-gold-300: #EDC951;
+  --color-gold-400: #E0B62E;
+  --color-gold-500: #D4A017;
+  --color-gold-600: #B8880F;
+  --color-gold-700: #8E6A0B;
+  --color-gold-800: #644C08;
+  --color-gold-900: #3A2D05;
+
+  --font-display: 'Playfair Display', serif;
+  --font-sans: 'DM Sans', sans-serif;
+}
+
+/* ===== Base Styles ===== */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-navy-200);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-navy-500);
+}
+
+/* ===== Utility: Hide Scrollbar ===== */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* ===== Utility: Line Clamp ===== */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
