@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useCallback } from 'react'
 import { Search, SlidersHorizontal, ChevronDown, X } from 'lucide-react'
 import { fetchBales } from '../../services/catalogue'
@@ -28,18 +29,14 @@ export default function CatalogueSection({ addToast, initialCategory }) {
   const [loading, setLoading] = useState(true)
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
 
-  // If initialCategory is passed (from category click), set it
   useEffect(() => {
     if (initialCategory) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFilters((prev) => ({ ...prev, category: String(initialCategory) }))
       setPage(1)
     }
   }, [initialCategory])
 
-  // Fetch bales whenever filters or page change
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true)
     const params = {
       search: filters.search || undefined,
@@ -124,7 +121,6 @@ export default function CatalogueSection({ addToast, initialCategory }) {
               )}
             </div>
 
-            {/* Mobile Filter Trigger Button - Only shows on large phones/tablets and smaller */}
             <button
               onClick={() => setMobileFilterOpen(true)}
               className="lg:hidden flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl border border-navy-100 bg-white text-sm font-medium text-navy-500 hover:border-gold-400 transition-colors"
@@ -148,10 +144,7 @@ export default function CatalogueSection({ addToast, initialCategory }) {
           </div>
         </ScrollReveal>
 
-        {/* CHANGED: flex-col forces stacking on mobile, lg:flex-row puts them side-by-side on desktop */}
         <div className="flex flex-col lg:flex-row gap-8">
-          
-          {/* Desktop Filter Sidebar - Hidden on anything smaller than large screens */}
           <aside className="hidden lg:block w-64 flex-shrink-0">
             <FilterSidebar
               filters={filters}
@@ -160,7 +153,6 @@ export default function CatalogueSection({ addToast, initialCategory }) {
             />
           </aside>
 
-          {/* Mobile Filter Panel (Bottom Sheet) - Hidden on large screens */}
           {mobileFilterOpen && (
             <div className="fixed inset-0 z-[140] lg:hidden">
               <div
@@ -192,15 +184,13 @@ export default function CatalogueSection({ addToast, initialCategory }) {
             </div>
           )}
 
-          {/* Product Grid */}
-          {/* CHANGED: w-full ensures it takes all space on mobile, lg:flex-1 lets it share space on desktop */}
           <div className="w-full lg:flex-1 lg:min-w-0">
             <p className="text-sm text-navy-300 mb-5">
               Showing {loading ? '...' : `${bales.length} of ${totalCount}`} bales
             </p>
 
             {loading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
                 {Array.from({ length: PER_PAGE }).map((_, i) => (
                   <SkeletonCard key={i} />
                 ))}
@@ -212,7 +202,7 @@ export default function CatalogueSection({ addToast, initialCategory }) {
               />
             ) : (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
                   {bales.map((bale) => (
                     <ProductCard key={bale.id} bale={bale} />
                   ))}

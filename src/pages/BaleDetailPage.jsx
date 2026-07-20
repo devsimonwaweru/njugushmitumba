@@ -13,7 +13,7 @@ import { PackageX } from 'lucide-react'
 export default function BaleDetailPage({ addToast }) {
   const { slug } = useParams()
   const { settings } = useSettings()
-  const phone = settings?.whatsapp || '254712345678'
+  const phone = settings?.whatsapp || '254723435586'
 
   const [bale, setBale] = useState(null)
   const [related, setRelated] = useState([])

@@ -1,7 +1,8 @@
+/* eslint-disable no-undef */
 /* eslint-disable no-unused-vars */
 import { useState, useEffect, useRef } from 'react'
-import { Plus, Trash2, ToggleLeft, Eye, X, Upload, Loader2, Package } from 'lucide-react'
-import { fetchBales, createBale, deleteBale, toggleBaleAvailability, fetchCategories } from '../../services/catalogue'
+import { Plus, Trash2, ToggleLeft, Eye, X, Upload, Loader2, Package, Pencil } from 'lucide-react'
+import { fetchBales, createBale, updateBale, deleteBale, toggleBaleAvailability, fetchCategories } from '../../services/catalogue'
 import { uploadMultipleToCloudinary } from '../../lib/cloudinary'
 import { formatPrice, generateSlug } from '../../utils/helpers'
 import { Link } from 'react-router-dom'
@@ -11,6 +12,7 @@ export default function AdminBales({ addToast }) {
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [editingBale, setEditingBale] = useState(null)
   const [savingIds, setSavingIds] = useState([])
   const fileInputRef = useRef(null)
 
@@ -18,6 +20,9 @@ export default function AdminBales({ addToast }) {
   const [form, setForm] = useState({ ...emptyForm })
   const [imageFiles, setImageFiles] = useState([])
   const [imagePreviews, setImagePreviews] = useState([])
+  const [existingImages, setExistingImages] = useState([])
+
+  const isEditing = editingBale !== null
 
   useEffect(() => {
     Promise.all([fetchBales({ perPage: 100 }), fetchCategories()])
@@ -32,6 +37,37 @@ export default function AdminBales({ addToast }) {
     setForm({ ...emptyForm })
     setImageFiles([])
     setImagePreviews([])
+    setExistingImages([])
+    setEditingBale(null)
+  }
+
+  function openCreateForm() {
+    resetForm()
+    setShowForm(true)
+  }
+
+  function openEditForm(bale) {
+    setEditingBale(bale)
+    setForm({
+      name: bale.name || '',
+      category_id: bale.category_id || bale.category?.id || '',
+      description: bale.description || '',
+      price: bale.price != null ? String(bale.price) : '',
+      grade: bale.grade || 'A',
+      estimated_pieces: bale.estimated_pieces != null ? String(bale.estimated_pieces) : '',
+      country_of_origin: bale.country_of_origin || 'Mixed',
+      featured: bale.featured || false,
+      available: bale.available !== false,
+    })
+    setExistingImages(bale.images?.length ? [...bale.images] : [])
+    setImageFiles([])
+    setImagePreviews([])
+    setShowForm(true)
+  }
+
+  function closeForm() {
+    setShowForm(false)
+    resetForm()
   }
 
   function handleImageSelect(e) { addImageFiles(Array.from(e.target.files)) }
@@ -47,18 +83,31 @@ export default function AdminBales({ addToast }) {
     setImagePreviews(prev => [...prev, ...imgs.map(f => URL.createObjectURL(f))])
   }
 
-  function removeImage(index) {
+  function removeNewImage(index) {
     URL.revokeObjectURL(imagePreviews[index])
     setImageFiles(prev => prev.filter((_, i) => i !== index))
     setImagePreviews(prev => prev.filter((_, i) => i !== index))
   }
 
+  function removeExistingImage(index) {
+    setExistingImages(prev => prev.filter((_, i) => i !== index))
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     if (!form.name || !form.category_id || !form.price || !form.estimated_pieces) {
-      addToast('Fill in all required fields', 'error'); return
+      addToast('Fill in all required fields', 'error')
+      return
     }
 
+    if (isEditing) {
+      await handleUpdate()
+    } else {
+      await handleCreate()
+    }
+  }
+
+  async function handleCreate() {
     const tempId = 'temp-' + Date.now()
     const newBale = {
       id: tempId,
@@ -101,6 +150,53 @@ export default function AdminBales({ addToast }) {
     }
   }
 
+  async function handleUpdate() {
+    const id = editingBale.id
+    setSavingIds(prev => [...prev, id])
+
+    const previewImages = imagePreviews.map((url, i) => ({ id: 'tmp-new-' + i, image_url: url, sort_order: existingImages.length + i }))
+    const finalImages = [...existingImages, ...previewImages]
+
+    setBales(prev => prev.map(b => b.id === id ? {
+      ...b,
+      name: form.name,
+      description: form.description,
+      price: Number(form.price),
+      grade: form.grade,
+      estimated_pieces: Number(form.estimated_pieces),
+      country_of_origin: form.country_of_origin,
+      featured: form.featured,
+      available: form.available,
+      category: categories.find(c => c.id === form.category_id) || bale.category,
+      images: finalImages,
+    } : b))
+    setShowForm(false)
+
+    try {
+      let newImageUrls = []
+      if (imageFiles.length > 0) {
+        newImageUrls = await uploadMultipleToCloudinary(imageFiles, 1200, 0.8)
+      }
+      const allImageUrls = [
+        ...existingImages.map(img => img.image_url),
+        ...newImageUrls,
+      ]
+      const updated = await updateBale(id, {
+        ...form,
+        price: Number(form.price),
+        estimated_pieces: Number(form.estimated_pieces),
+      }, allImageUrls)
+      setBales(prev => prev.map(b => b.id === id ? { ...updated } : b))
+      addToast('Bale updated successfully')
+    } catch (err) {
+      addToast(err.message || 'Failed to update bale', 'error')
+      fetchBales({ perPage: 100 }).then(r => setBales(r.bales)).catch(() => {})
+    } finally {
+      setSavingIds(prev => prev.filter(sid => sid !== id))
+      resetForm()
+    }
+  }
+
   async function handleDelete(id) {
     if (!confirm('Delete this bale? This cannot be undone.')) return
     const name = bales.find(b => b.id === id)?.name || 'Bale'
@@ -125,7 +221,7 @@ export default function AdminBales({ addToast }) {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="font-display text-2xl font-bold text-navy-500">Manage Bales</h1>
-        <button onClick={() => { resetForm(); setShowForm(true) }} className="bg-gold-500 hover:bg-gold-400 text-navy-700 font-semibold text-sm px-5 py-2.5 rounded-lg transition-colors flex items-center gap-2">
+        <button onClick={openCreateForm} className="bg-gold-500 hover:bg-gold-400 text-navy-700 font-semibold text-sm px-5 py-2.5 rounded-lg transition-colors flex items-center gap-2">
           <Plus className="w-4 h-4" />Add Bale
         </button>
       </div>
@@ -134,8 +230,10 @@ export default function AdminBales({ addToast }) {
         <div className="fixed inset-0 z-30 flex items-start justify-center bg-black/50 p-4 pt-10 overflow-y-auto">
           <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl mb-10">
             <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <h2 className="font-display font-bold text-navy-500 text-lg">Add New Bale</h2>
-              <button onClick={() => { setShowForm(false); resetForm() }} className="text-gray-400 hover:text-gray-600 p-1"><X className="w-5 h-5" /></button>
+              <h2 className="font-display font-bold text-navy-500 text-lg">
+                {isEditing ? 'Edit Bale' : 'Add New Bale'}
+              </h2>
+              <button onClick={closeForm} className="text-gray-400 hover:text-gray-600 p-1"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleSubmit} className="p-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
@@ -161,9 +259,9 @@ export default function AdminBales({ addToast }) {
                 <div>
                   <label className="block text-xs font-medium text-navy-500 mb-1">Grade</label>
                   <select value={form.grade} onChange={e => updateForm('grade', e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-gold-400">
-                    <option value="A">Grade A (Premium)</option>
-                    <option value="B">Grade B (Standard)</option>
-                    <option value="C">Grade C (Economy)</option>
+                    <option value="A">Grade A </option>
+                    <option value="B">Grade B </option>
+                    
                   </select>
                 </div>
                 <div>
@@ -187,7 +285,22 @@ export default function AdminBales({ addToast }) {
               </div>
 
               <div className="mb-6">
-                <label className="block text-xs font-medium text-navy-500 mb-2">Images (optional)</label>
+                <label className="block text-xs font-medium text-navy-500 mb-2">Images</label>
+
+                {isEditing && existingImages.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold mb-2">Current Images</p>
+                    <div className="flex gap-3 flex-wrap">
+                      {existingImages.map((img, i) => (
+                        <div key={img.id || i} className="relative w-20 h-20 rounded-lg overflow-hidden border border-gray-200">
+                          <img src={img.image_url} alt="" className="w-full h-full object-cover" />
+                          <button type="button" onClick={() => removeExistingImage(i)} className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"><X className="w-3 h-3" /></button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div onDrop={handleDrop} onDragOver={e => e.preventDefault()} onClick={() => fileInputRef.current?.click()}
                   className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center cursor-pointer hover:border-gold-400 transition-colors">
                   <Upload className="w-8 h-8 text-gray-300 mx-auto mb-2" />
@@ -195,20 +308,25 @@ export default function AdminBales({ addToast }) {
                   <p className="text-gray-300 text-xs mt-1">JPG, PNG, WebP</p>
                   <input ref={fileInputRef} type="file" multiple accept="image/*" onChange={handleImageSelect} className="hidden" />
                 </div>
+
                 {imagePreviews.length > 0 && (
-                  <div className="flex gap-3 mt-3 flex-wrap">
-                    {imagePreviews.map((src, i) => (
-                      <div key={i} className="relative w-20 h-20 rounded-lg overflow-hidden border border-gray-200">
-                        <img src={src} alt="" className="w-full h-full object-cover" />
-                        <button type="button" onClick={() => removeImage(i)} className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center"><X className="w-3 h-3" /></button>
-                      </div>
-                    ))}
+                  <div className="mt-3">
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold mb-2">New Images</p>
+                    <div className="flex gap-3 flex-wrap">
+                      {imagePreviews.map((src, i) => (
+                        <div key={i} className="relative w-20 h-20 rounded-lg overflow-hidden border border-gold-300 bg-gold-50">
+                          <img src={src} alt="" className="w-full h-full object-cover" />
+                          <button type="button" onClick={() => removeNewImage(i)} className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"><X className="w-3 h-3" /></button>
+                          <span className="absolute bottom-0 left-0 right-0 bg-gold-500 text-navy-700 text-[8px] font-bold text-center py-0.5">NEW</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
 
               <button type="submit" disabled={!form.name || !form.category_id || !form.price} className="w-full bg-gold-500 hover:bg-gold-400 text-navy-700 font-bold text-sm px-8 py-3.5 rounded-xl transition-colors disabled:opacity-40">
-                Add Bale
+                {isEditing ? 'Save Changes' : 'Add Bale'}
               </button>
             </form>
           </div>
@@ -269,9 +387,10 @@ export default function AdminBales({ addToast }) {
                     </td>
                     <td className="p-4">
                       <div className="flex items-center gap-1">
-                        <Link to={`/bale/${bale.slug}`} className="text-gray-400 hover:text-navy-500 p-1"><Eye className="w-4 h-4" /></Link>
-                        <button onClick={() => handleToggle(bale.id)} disabled={isSaving} className="text-gray-400 hover:text-navy-500 p-1 disabled:opacity-30"><ToggleLeft className="w-4 h-4" /></button>
-                        <button onClick={() => handleDelete(bale.id)} disabled={isSaving} className="text-gray-400 hover:text-red-500 p-1 disabled:opacity-30"><Trash2 className="w-4 h-4" /></button>
+                        <Link to={`/bale/${bale.slug}`} className="text-gray-400 hover:text-navy-500 p-1" title="View"><Eye className="w-4 h-4" /></Link>
+                        <button onClick={() => openEditForm(bale)} disabled={isSaving} className="text-gray-400 hover:text-gold-500 p-1 disabled:opacity-30" title="Edit"><Pencil className="w-4 h-4" /></button>
+                        <button onClick={() => handleToggle(bale.id)} disabled={isSaving} className="text-gray-400 hover:text-navy-500 p-1 disabled:opacity-30" title="Toggle availability"><ToggleLeft className="w-4 h-4" /></button>
+                        <button onClick={() => handleDelete(bale.id)} disabled={isSaving} className="text-gray-400 hover:text-red-500 p-1 disabled:opacity-30" title="Delete"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     </td>
                   </tr>

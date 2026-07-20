@@ -41,9 +41,9 @@ export default function FilterSidebar({ filters, onChange, onClear }) {
         <div className="flex flex-col gap-2">
           {[
             { value: 'all', label: 'All Grades' },
-            { value: 'A', label: 'Grade A (Premium)' },
-            { value: 'B', label: 'Grade B (Standard)' },
-            { value: 'C', label: 'Grade C (Economy)' },
+            { value: 'A', label: 'Grade A ' },
+            { value: 'B', label: 'Grade B ' },
+            
           ].map((g) => (
             <label
               key={g.value}
